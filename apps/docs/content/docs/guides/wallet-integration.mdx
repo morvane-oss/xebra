@@ -13,7 +13,7 @@ uses each wallet's library, not `@xebra/sdk`, so it is illustrative rather than 
 | `evm` | `chainId`, `to`, `data`, `value` (always `"0"`) | An EIP-1193 wallet, which also submits it |
 | `sui` | `json` | A Sui wallet, which also executes it |
 | `solana` | `transaction` (base64) | A Solana wallet; then sent to Solana RPC |
-| `aptos` | `chainId`, `bytecode`, `arguments` | An Aptos wallet; then submitted to Aptos RPC |
+| `aptos` | `chainId`, `bytecode`, `arguments` | An Aptos wallet, which also submits it |
 
 Ask for signatures in the order of `steps`, and wait for each to land before the next.
 
