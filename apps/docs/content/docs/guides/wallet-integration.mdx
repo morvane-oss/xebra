@@ -199,11 +199,15 @@ const { digest } = await wallet.features["sui:signAndExecuteTransaction"].signAn
   account,
   chain: "sui:mainnet",
 });
-const sui = new SuiJsonRpcClient({ url: "https://fullnode.mainnet.sui.io:443" });
+const sui = new SuiJsonRpcClient({
+  url: "https://fullnode.mainnet.sui.io:443",
+  network: "mainnet",
+});
 const result = await sui.waitForTransaction({
   digest,
   timeout: 30_000,
   pollInterval: 1_000,
+  options: { showEffects: true },
 });
 if (result.effects?.status.status !== "success") {
   throw new Error(result.effects?.status.error ?? "Sui transaction failed");
@@ -228,21 +232,13 @@ const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(
 tx.recentBlockhash = blockhash;
 const signed = await wallet.signTransaction(tx); // Phantom, Solflare, or any wallet adapter
 
-try {
-  const signature = await connection.sendRawTransaction(signed.serialize());
-  const confirmation = await connection.confirmTransaction(
-    { signature, blockhash, lastValidBlockHeight },
-    "confirmed",
-  );
-  if (confirmation.value.err) {
-    throw new Error(`Solana transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-  }
-} catch (err) {
-  const message = err instanceof Error ? err.message : String(err);
-  if (/blockhash|expired|invalidblockhash/i.test(message)) {
-    throw new Error("Blockhash expired or not found; rebuild the transaction with a fresh blockhash");
-  }
-  throw err;
+const signature = await connection.sendRawTransaction(signed.serialize());
+const confirmation = await connection.confirmTransaction(
+  { signature, blockhash, lastValidBlockHeight },
+  "confirmed",
+);
+if (confirmation.value.err) {
+  throw new Error(`Solana transaction failed: ${JSON.stringify(confirmation.value.err)} (${signature})`);
 }
 ```
 
@@ -257,8 +253,9 @@ const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(
 tx.recentBlockhash = blockhash;
 const signed = await wallet.signTransaction(tx);
 
+let signature: string | undefined;
 try {
-  const signature = await connection.sendRawTransaction(signed.serialize());
+  signature = await connection.sendRawTransaction(signed.serialize());
   const confirmation = await connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
     "confirmed",
@@ -269,7 +266,14 @@ try {
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
   if (/blockhash|expired|invalidblockhash/i.test(message)) {
-    throw new Error("Blockhash expired or not found; rebuild the transaction with a fresh blockhash");
+    throw new Error(
+      `Blockhash expired or not found; rebuild the transaction with a fresh blockhash${signature ? `. Submitted signature: ${signature}` : ""}`,
+    );
+  }
+  if (signature) {
+    throw new Error(
+      `Network error after submission; look up signature ${signature} before retrying. Original error: ${message}`,
+    );
   }
   throw err;
 }
