@@ -233,13 +233,10 @@ tx.recentBlockhash = blockhash;
 const signed = await wallet.signTransaction(tx); // Phantom, Solflare, or any wallet adapter
 
 const signature = await connection.sendRawTransaction(signed.serialize());
-const confirmation = await connection.confirmTransaction(
+await connection.confirmTransaction(
   { signature, blockhash, lastValidBlockHeight },
   "confirmed",
 );
-if (confirmation.value.err) {
-  throw new Error(`Solana transaction failed: ${JSON.stringify(confirmation.value.err)} (${signature})`);
-}
 ```
 
 ### Failures
@@ -254,15 +251,13 @@ tx.recentBlockhash = blockhash;
 const signed = await wallet.signTransaction(tx);
 
 let signature: string | undefined;
+let confirmation;
 try {
   signature = await connection.sendRawTransaction(signed.serialize());
-  const confirmation = await connection.confirmTransaction(
+  confirmation = await connection.confirmTransaction(
     { signature, blockhash, lastValidBlockHeight },
     "confirmed",
   );
-  if (confirmation.value.err) {
-    throw new Error(`Solana transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-  }
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
   if (/blockhash|expired|invalidblockhash/i.test(message)) {
@@ -276,6 +271,12 @@ try {
     );
   }
   throw err;
+}
+
+if (confirmation.value.err) {
+  throw new Error(
+    `Solana transaction failed: ${JSON.stringify(confirmation.value.err)} (${signature})`,
+  );
 }
 ```
 
